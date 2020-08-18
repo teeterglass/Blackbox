@@ -2,6 +2,8 @@
 
 This is a logic based game programed in Python.
 
+All files are required for play, and you need to run Blackbox_full.py to initiate the game.
+
 The history and rules of the game can be found:
 https://en.wikipedia.org/wiki/Black_Box_(game)
 
