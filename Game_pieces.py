@@ -43,33 +43,9 @@ class Board:
         """return first colored marker off list"""
         return self._marker_list.pop()
 
-    def get_hit_marker_b(self, screen):
-        """returns black marker"""
-        return Marker((0, 0, 0), screen)
-
-    def get_reflect_marker_b(self, screen):
-        """returns a white marker"""
-        return Marker((255, 255, 255), screen)
-
-    def get_atom_hit_b(self, screen):
-        """returns a green marker"""
-        return Marker((0, 128, 0), screen)
-
-    def get_atom_miss_b(self, screen):
-        """returns a red marker"""
-        return Marker((255, 0, 0), screen)
-
     def get_board_item(self, row_pos, column_pos):
         """returns character on board at location given"""
         return self._board[row_pos][column_pos]
-
-    def get_board_image(self):
-        """returns board image"""
-        return self._image
-
-    def get_whole_board(self):
-        """returns entire board for printing"""
-        return self._board
 
     def find_exit(self, entry_x, entry_y):
         """
@@ -107,6 +83,32 @@ class Board:
             entry_x = entry_x + direction[0]
             entry_y = entry_y + direction[1]
             return self.follow_path(entry_x, entry_y, direction)
+
+    def follow_path(self, entry_x, entry_y, direction):
+        """
+        2nd part of find_exit() to loop through game board "path"
+        :param entry_x: entry of game board x
+        :param entry_y: entry of game board y
+        :param direction: direction of travel
+        :return: None if a "hit" is found, otherwise return exit coord in tuple
+        """
+
+        while entry_x not in [0, 9] and entry_y not in [0,9]:
+
+            next_middle, next_large, next_small = \
+                self.pull_locations(entry_x, entry_y, direction)
+
+            # found a "hit" return None
+            if next_middle == 'x':
+                return 0
+            else:
+                direction = self.calculate_direction(next_large, next_small,
+                                                     direction)
+            # advance to the next square
+            entry_x = entry_x + direction[0]
+            entry_y = entry_y + direction[1]
+
+        return entry_x, entry_y
 
     def pull_locations(self, entry_x, entry_y, direction):
         """
@@ -165,32 +167,6 @@ class Board:
 
         return direction
 
-    def follow_path(self, entry_x, entry_y, direction):
-        """
-        2nd part of find_exit() to loop through game board "path"
-        :param entry_x: entry of game board x
-        :param entry_y: entry of game board y
-        :param direction: direction of travel
-        :return: None if a "hit" is found, otherwise return exit coord in tuple
-        """
-
-        while entry_x not in [0, 9] and entry_y not in [0,9]:
-
-            next_middle, next_large, next_small = \
-                self.pull_locations(entry_x, entry_y, direction)
-
-            # found a "hit" return None
-            if next_middle == 'x':
-                return 0
-            else:
-                direction = self.calculate_direction(next_large, next_small,
-                                                     direction)
-            # advance to the next square
-            entry_x = entry_x + direction[0]
-            entry_y = entry_y + direction[1]
-
-        return entry_x, entry_y
-
 
 class Player:
     """Class to track the player's points and store move/guess locations"""
@@ -199,8 +175,6 @@ class Player:
         """moves will track the players previous moves and guesses"""
         self._moves = {}
         self._atom_guess = {}
-        self._points = 25
-        self._atom_left = 0
         self.bb_settings = bb_settings
         self.screen = screen
         self.screen_rect = screen.get_rect()
@@ -208,26 +182,13 @@ class Player:
         self._score_rect = None
         self._atom_image = None
         self._atom_rect = None
-        self.prep_score_board()
-
-    def update_num_atoms(self, num_atoms):
-        """recieve initial number of atoms"""
-        self._atom_left = num_atoms
-
-    def remove_atom(self):
-        """removes atom from list if guessed right"""
-        self._atom_left -= 1
 
     def get_moves(self):
         """returns the list of entry and exit the player has visited"""
         return self._moves
 
-    def get_points(self):
-        """returns the current point total for a player"""
-        return self._points
-
-    def get_atom_guess(self):
-        """returns the atom guesses the player has already taken"""
+    def get_atom_guesses(self):
+        """returns atom guesses"""
         return self._atom_guess
 
     def add_atom_guess(self, guess, marker):
@@ -271,50 +232,8 @@ class Player:
                 self._moves[entry] = None
                 count += 1
 
-        self.dec_player_score(count)
+        return count
 
-    def dec_player_score(self, count):
-        """decrements player's score by given count"""
-        self._points -= count
 
-    def prep_score_board(self):
-        """Turn the score into a rendered image."""
 
-        current_score = str(self._points) + " Points"
-        num_atoms = str(self._atom_left) + " Atoms left"
-        self._score_image = self.bb_settings.font.render(current_score, True,
-                                             self.bb_settings.text_color,
-                                             self.bb_settings.bg_color)
 
-        self._atom_image = self.bb_settings.font.render(num_atoms, True,
-                                             self.bb_settings.text_color,
-                                             self.bb_settings.bg_color)
-        # Display the score at the top right of the screen.
-        self._score_rect = self._score_image.get_rect()
-        self._score_rect.right = self.screen_rect.right - 20
-        self._score_rect.top = 20
-
-        self._atom_rect = self._atom_image.get_rect()
-        self._atom_rect.right = self.screen_rect.right - 20
-        self._atom_rect.top = 80
-
-    def get_score_image_rect(self):
-        """returns score image and rect"""
-        current_score = str(self._points) + " Points"
-        if self._points <= 0:
-            num_atoms = "You lost!"
-        elif self._atom_left > 0:
-            num_atoms = str(self._atom_left) + " Atoms left"
-        else:
-            num_atoms = "You Won!"
-
-        self._score_image = self.bb_settings.font.render(current_score, True,
-                                             self.bb_settings.text_color,
-                                             self.bb_settings.bg_color)
-
-        self._atom_image = self.bb_settings.font.render(num_atoms, True,
-                                             self.bb_settings.text_color,
-                                             self.bb_settings.bg_color)
-
-        return self._score_image, self._score_rect, \
-               self._atom_image, self._atom_rect
