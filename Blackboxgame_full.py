@@ -8,8 +8,13 @@
 # entrance and exit.  5 points deducted for a wrong atom guess.  Game is over
 # when player guesses locations of all atoms or points go negative.
 
+import sys
 import pygame
 from functools import wraps
+from Game_pieces import Board, Player
+from settings import Settings, GameStats
+from random import randint
+from Graphics_classes import Button
 
 
 class BlackBoxGame:
@@ -17,6 +22,7 @@ class BlackBoxGame:
      player object using Player class, and create a list of Atom locations"""
 
     class ScoreChecker:
+        """Class to add decorators to methods that impact player's score"""
         @classmethod
         def check_score(cls, func):
             """checks to see if player has any points left"""
@@ -28,23 +34,21 @@ class BlackBoxGame:
                     return res
             return wrapper
 
-    def __init__(self, screen, bb_settings):
+    def __init__(self):
         """initialize the parameters for the game"""
         self._board = None
-        # generate a player
-        self._player = Player(screen, bb_settings)
-        self.image = pygame.image.load('board.bmp')
-        self.rect = self.image.get_rect()
-        self.screen = screen
+        self._bb_settings = Settings()
+        self._screen = pygame.display.set_mode((self._bb_settings.screen_width,
+                                                self._bb_settings.screen_height))
+        self._player = Player(self._screen, self._bb_settings)
+        self._image = pygame.image.load('board.bmp')
+        self._rect = self._image.get_rect()
+        self._stats = GameStats(self._bb_settings)
+        self._play_button_list = self.make_play_buttons()
 
-    def print_board(self):
-        """Prints the existing board for trouble shooting"""
-        for row in self._board.get_whole_board():
-            print(row)
-
-    def update_board_atoms(self, list_atoms, screen):
+    def update_board_atoms(self, list_atoms):
         """update atoms after user picks how many they want"""
-        self._board = Board(list_atoms, screen)
+        self._board = Board(list_atoms, self._screen)
         self._player.update_num_atoms(len(list_atoms))
 
     def calculate_entry_exit(self, pos_y, pos_x):
@@ -52,7 +56,7 @@ class BlackBoxGame:
         return (pos_y * 70 + 35), (pos_x * 70 + 35)
 
     @ScoreChecker.check_score
-    def shoot_ray(self, entry_x, entry_y, screen):
+    def shoot_ray(self, entry_x, entry_y):
         """
         checks if coordinates are valid, modifies score correctly and returns
         exit tuple if applicable
@@ -68,7 +72,7 @@ class BlackBoxGame:
             # returned 0 if hit
             if exit_tup == 0:
                 # decrement entry only if not visited
-                marker = self.get_hit_marker(screen)
+                marker = self.get_hit_marker()
                 circle_tuple = self.calculate_entry_exit(entry_y, entry_x)
                 marker.update_center(circle_tuple)
                 self._player.add_entry_exit((entry_x, entry_y), marker,
@@ -76,7 +80,7 @@ class BlackBoxGame:
                 return "Hit"
             elif exit_tup == 1:
                 # decrement entry only if not visited
-                marker = self.get_reflect_marker(screen)
+                marker = self.get_reflect_marker()
                 circle_tuple = self.calculate_entry_exit(entry_y, entry_x)
                 marker.update_center(circle_tuple)
                 self._player.add_entry_exit((entry_x, entry_y), marker,
@@ -97,7 +101,7 @@ class BlackBoxGame:
             return "Bad shot"
 
     @ScoreChecker.check_score
-    def guess_atom(self, atom_x, atom_y, screen):
+    def guess_atom(self, atom_x, atom_y):
         """
         Checks if atom where guessed by player and decrements if not.  Removes
         atom from list stored
@@ -109,7 +113,7 @@ class BlackBoxGame:
 
         if self._board.get_board_item(atom_x, atom_y) == 'x':
             # if there, add to player's list and remove from board list
-            marker = self.get_atom_hit(screen)
+            marker = self.get_atom_hit()
             circle_tuple = self.calculate_entry_exit(atom_y, atom_x)
             marker.update_center(circle_tuple)
             self._player.add_atom_guess((atom_x, atom_y), marker)
@@ -118,7 +122,7 @@ class BlackBoxGame:
             return True
         else:
             # use the true/false in add_atom_guess return logic to decrement
-            marker = self.get_atom_miss(screen)
+            marker = self.get_atom_miss()
             circle_tuple = self.calculate_entry_exit(atom_y, atom_x)
             marker.update_center(circle_tuple)
             if self._player.add_atom_guess((atom_x, atom_y), marker):
@@ -133,21 +137,21 @@ class BlackBoxGame:
         """get color marker from board"""
         return self._board.get_color_marker_b()
 
-    def get_hit_marker(self, screen):
+    def get_hit_marker(self):
         """get hit marker from board"""
-        return self._board.get_hit_marker_b(screen)
+        return self._board.get_hit_marker_b(self._screen)
 
-    def get_reflect_marker(self, screen):
+    def get_reflect_marker(self):
         """get reflect white marker from board class"""
-        return self._board.get_reflect_marker_b(screen)
+        return self._board.get_reflect_marker_b(self._screen)
 
-    def get_atom_hit(self, screen):
+    def get_atom_hit(self):
         """get atom hit marker from board class"""
-        return self._board.get_atom_hit_b(screen)
+        return self._board.get_atom_hit_b(self._screen)
 
-    def get_atom_miss(self, screen):
+    def get_atom_miss(self):
         """get atom miss marker from board class"""
-        return self._board.get_atom_miss_b(screen)
+        return self._board.get_atom_miss_b(self._screen)
 
     def get_score(self):
         """returns player's score"""
@@ -174,348 +178,145 @@ class BlackBoxGame:
         score_image, score_rect, atom_image, atom_rect = \
             self._player.get_score_image_rect()
 
-        self.screen.blit(score_image, score_rect)
-        self.screen.blit(atom_image, atom_rect)
-        self.screen.blit(self.image, self.rect)
+        self._screen.blit(score_image, score_rect)
+        self._screen.blit(atom_image, atom_rect)
+        self._screen.blit(self._image, self._rect)
 
+    def check_events(self):
+        """Respond to keypresses and mouse events."""
 
-class Marker:
-    """Class to model a pair of markers for the entry, exit locations/atoms"""
-    def __init__(self, color, screen):
-        """initialization of marker variables"""
-        self.screen = screen
-        self.screen_circle = screen.get_rect()
-        self.circle_center = (0, 0), (0, 0)
-        self.circle_color = color
-        # Build the button's rect object and center it
-        self.circle_rad = 30
-
-    def draw_marker(self):
-        """Draw a blank marker(s) for entry/exit/atom"""
-        pygame.draw.circle(self.screen, self.circle_color, self.circle_center[0],
-                           self.circle_rad)
-        if self.circle_center[1] != (0,0):
-            pygame.draw.circle(self.screen, self.circle_color,
-                               self.circle_center[1], self.circle_rad)
-
-    def update_center(self, center_entry, center_exit=(0, 0)):
-        """updates center once marker has been assigned"""
-        self.circle_center = center_entry, center_exit
-
-
-class Board:
-    """class to initialize the board space and track entry and exit paths"""
-
-    def __init__(self, list_atoms, screen):
-        """initialization of board"""
-        self._board = [['' for num in range(10)] for num in range(10)]
-        self.place_atoms_corners(list_atoms)
-        self._image = pygame.image.load('board.bmp')
-        self._marker_list = []
-        self.create_markers(screen)
-        self._atom_list = list_atoms
-
-    def get_atom_left(self):
-        """return number of atoms"""
-        return len(self._atom_list)
-
-    def place_atoms_corners(self, list_atoms):
-        """places atoms on the board as 'x' and 'o' in corners"""
-        # for every atom, place an 'x' on the board
-        for atom in list_atoms:
-            row, column = atom
-            self._board[row][column] = "x"
-        # place a 'o' in each corner
-            self._board[0][0] = "o"
-            self._board[9][9] = "o"
-            self._board[9][0] = "o"
-            self._board[0][9] = "o"
-
-    def create_markers(self, screen):
-        """generate a list of markers to be attached to in-out locations"""
-        color_list = [(0, 255, 0), (255, 255, 255), (0, 200, 0),
-                      (0, 0, 128), (0, 0, 255), (200, 0, 0), (255, 100, 100),
-                      (255, 0, 230), (255, 100, 10), (115, 0, 0), (0, 255, 255)]
-
-        for color in color_list:
-            self._marker_list.append(Marker(color, screen))
-
-    def get_color_marker_b(self):
-        """return first colored marker off list"""
-        return self._marker_list.pop()
-
-    def get_hit_marker_b(self, screen):
-        """returns black marker"""
-        return Marker((0, 0, 0), screen)
-
-    def get_reflect_marker_b(self, screen):
-        """returns a white marker"""
-        return Marker((255, 255, 255), screen)
-
-    def get_atom_hit_b(self, screen):
-        """returns a green marker"""
-        return Marker((0, 128, 0), screen)
-
-    def get_atom_miss_b(self, screen):
-        """returns a red marker"""
-        return Marker((255, 0, 0), screen)
-
-    def get_board_item(self, row_pos, column_pos):
-        """returns character on board at location given"""
-        return self._board[row_pos][column_pos]
-
-    def get_board_image(self):
-        """returns board image"""
-        return self._image
-
-    def get_whole_board(self):
-        """returns entire board for printing"""
-        return self._board
-
-    def find_exit(self, entry_x, entry_y):
-        """
-        Finds the edge iteration of exit solution and then calls function to
-        complete final path finding inside game board
-        :param entry_x: entry point of row
-        :param entry_y: entry point of column
-        :return: returns None if hit, otherwise returns exit coordinate in tuple
-        """
-        # direction is step direction.  d for down, u for up, r right
-        # l for left.  first 2 are for row, column direction when added.  second
-        # 2 numbers describe the boxes "small"(subtract) or "large"(add) to
-        # either side of the "middle"
-
-        if entry_x == 0:
-            direction = [1, 0, 0, 1, "d"]
-        elif entry_x == 9:
-            direction = [-1, 0, 0, 1, "u"]
-        elif entry_y == 0:
-            direction = [0, 1, 1, 0, "r"]
-        elif entry_y == 9:
-            direction = [0, -1, 1, 0, "l"]
-
-        next_middle, next_large, next_small = \
-            self.pull_locations(entry_x, entry_y, direction)
-
-        # hit or reflection coming right off the edge
-        if next_middle == 'x':
-            return 0
-        elif next_large == 'x' or next_small == 'x':
-            return 1
-
-        # otherwise enter the game board and ultimately return tuple
-        else:
-            entry_x = entry_x + direction[0]
-            entry_y = entry_y + direction[1]
-            return self.follow_path(entry_x, entry_y, direction)
-
-    def pull_locations(self, entry_x, entry_y, direction):
-        """
-        Helper function to simplify follow path.  Pulls board locations for
-        next_middle, next_large, next_small
-        :param entry_x: location on board in row
-        :param entry_y: location on board in column
-        :param direction: direciton travelling
-        :return: next_middle, next_large, next_small
-        """
-
-        # pull next "middle" of 3 in play pieces from board and return
-        next_middle = self._board[entry_x + direction[0]][
-            entry_y + direction[1]]
-        # pull next "towards bottom/right" of 3 in play pieces from board
-        next_large = self._board[entry_x + direction[0] + direction[2]] \
-            [entry_y + direction[1] + direction[3]]
-        # pull next "towards upper/left of 3 in play pieces from board
-        next_small = self._board[entry_x + direction[0] - direction[2]] \
-            [entry_y + direction[1] - direction[3]]
-
-        return next_middle, next_large, next_small
-
-    def calculate_direction(self, next_large, next_small, direction):
-        """
-        calculate direction based on next_large, next_small and return direction
-        :param next_large: location on board next large
-        :param next_small: location on board next small
-        :param direction: current direction
-        :return: new direction
-        """
-        # (go down for left/right or go right for up/down previous)
-        if next_small == 'x':
-            # if both are 'x' then have to do a 180
-            if next_large == 'x':
-                if direction[4] == 'u':
-                    direction = [1, 0, 0, 1, "d"]
-                elif direction[4] == 'd':
-                    direction = [-1, 0, 0, 1, "u"]
-                elif direction[4] == 'r':
-                    direction = [0, -1, 1, 0, "l"]
-                elif direction[4] == 'l':
-                    direction = [0, 1, 1, 0, "r"]
-            # otherwise just take the appropriate 90 degree turn
-            elif direction[4] == 'u' or direction[4] == 'd':
-                direction = [0, 1, 1, 0, "r"]
-            elif direction[4] == 'l' or direction[4] == 'r':
-                direction = [1, 0, 0, 1, "d"]
-
-        # (go up for left/right or go left for up/down previous)
-        elif next_large == 'x':
-            if direction[4] == 'u' or direction[4] == 'd':
-                direction = [0, -1, 1, 0, "l"]
-            elif direction[4] == 'l' or direction[4] == 'r':
-                direction = [-1, 0, 0, 1, "u"]
-
-        return direction
-
-    def follow_path(self, entry_x, entry_y, direction):
-        """
-        2nd part of find_exit() to loop through game board "path"
-        :param entry_x: entry of game board x
-        :param entry_y: entry of game board y
-        :param direction: direction of travel
-        :return: None if a "hit" is found, otherwise return exit coord in tuple
-        """
-
-        while entry_x not in [0, 9] and entry_y not in [0,9]:
-
-            next_middle, next_large, next_small = \
-                self.pull_locations(entry_x, entry_y, direction)
-
-            # found a "hit" return None
-            if next_middle == 'x':
-                return 0
-            else:
-                direction = self.calculate_direction(next_large, next_small,
-                                                     direction)
-            # advance to the next square
-            entry_x = entry_x + direction[0]
-            entry_y = entry_y + direction[1]
-
-        return entry_x, entry_y
-
-
-class Player:
-    """Class to track the player's points and store move/guess locations"""
-
-    def __init__(self, screen, bb_settings):
-        """moves will track the players previous moves and guesses"""
-        self._moves = {}
-        self._atom_guess = {}
-        self._points = 25
-        self._atom_left = 0
-        self.bb_settings = bb_settings
-        self.screen = screen
-        self.screen_rect = screen.get_rect()
-        self._score_image = None
-        self._score_rect = None
-        self._atom_image = None
-        self._atom_rect = None
-        self.prep_score_board()
-
-    def update_num_atoms(self, num_atoms):
-        """recieve initial number of atoms"""
-        self._atom_left = num_atoms
-
-    def remove_atom(self):
-        """removes atom from list if guessed right"""
-        self._atom_left -= 1
-
-    def get_moves(self):
-        """returns the list of entry and exit the player has visited"""
-        return self._moves
-
-    def get_points(self):
-        """returns the current point total for a player"""
-        return self._points
-
-    def get_atom_guess(self):
-        """returns the atom guesses the player has already taken"""
-        return self._atom_guess
-
-    def add_atom_guess(self, guess, marker):
-        """
-        checks if a guess is in player's history and returns true and adds
-        the guess and decrements how many are left.  Otherwise returns false
-        :param guess: current guess tuple being taken
-        :return: True if not in previous guesses, false otherwise
-        """
-        if guess in self._atom_guess:
-            return False
-        else:
-            self._atom_guess[guess] = marker
-            return True
-
-    def add_entry_exit(self, entry, marker_obj, exit_tup=None):
-        """
-        accepts an entry and optional exit tuple and checks if either are in
-        previous history.  If both are, no decrement.  if one or the other are
-        then decrement player score by 1.  If neither, dec 2
-        :param entry: entry tuple
-        :param marker_obj: marker to be placed in dictionary
-        :param exit_tup: exit tuple
-        :return: none
-        """
-        count = 0
-        # check if the entry tuple has already been added to dictionary
-        if entry not in self._moves.keys():
-            # if it hasn't, check if exit tuple is not default
-            if exit_tup not in [0, 1]:
-                # add them both and add the "reverse" trip
-                self._moves[entry] = [exit_tup, marker_obj]
-                self._moves[exit_tup] = [entry, marker_obj]
-                # 1 for a reflection, 2 for other paths
-                if exit_tup == entry:
-                    count += 1
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                if not self._stats.game_active:
+                    self.check_play_button(mouse_x, mouse_y)
                 else:
-                    count += 2
+                    self.check_click(mouse_x, mouse_y)
+
+    def check_play_button(self, mouse_x, mouse_y):
+        """Start a new game when the player clicks play"""
+        for button in self._play_button_list:
+            if button.rect.collidepoint(mouse_x, mouse_y):
+                button_clicked = button
+                break
             else:
-                # just add the entry.  This represents a Hit or edge reflection
-                self._moves[entry] = None
-                count += 1
+                button_clicked = None
 
-        self.dec_player_score(count)
+        if button_clicked is not None and not self._stats.game_active:
+            self.start_game(button_clicked.num_atom)
 
-    def dec_player_score(self, count):
-        """decrements player's score by given count"""
-        self._points -= count
+    def manual_input():
+        """create manual 4 atom list"""
+        atom_list = []
+        while len(atom_list) < 4:
+            for event in pygame.event.get():
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_x, mouse_y = pygame.mouse.get_pos()
+                    column = mouse_x // 70
+                    row = mouse_y // 70
+                    if 1 < column < 9 and 1 < row < 9:
+                        if (row, column) not in atom_list:
+                            atom_list.append((row, column))
 
-    def prep_score_board(self):
-        """Turn the score into a rendered image."""
+        return atom_list
 
-        current_score = str(self._points) + " Points"
-        num_atoms = str(self._atom_left) + " Atoms left"
-        self._score_image = self.bb_settings.font.render(current_score, True,
-                                             self.bb_settings.text_color,
-                                             self.bb_settings.bg_color)
+    def start_game(self, num_atom):
+        """Start a new game"""
 
-        self._atom_image = self.bb_settings.font.render(num_atoms, True,
-                                             self.bb_settings.text_color,
-                                             self.bb_settings.bg_color)
-        # Display the score at the top right of the screen.
-        self._score_rect = self._score_image.get_rect()
-        self._score_rect.right = self.screen_rect.right - 20
-        self._score_rect.top = 20
-
-        self._atom_rect = self._atom_image.get_rect()
-        self._atom_rect.right = self.screen_rect.right - 20
-        self._atom_rect.top = 80
-
-    def get_score_image_rect(self):
-        """returns score image and rect"""
-        current_score = str(self._points) + " Points"
-        if self._points <= 0:
-            num_atoms = "You lost!"
-        elif self._atom_left > 0:
-            num_atoms = str(self._atom_left) + " Atoms left"
+        # Reset the game statistics
+        self._stats.game_active = True
+        self.update_screen()
+        if type(num_atom) == str:
+            atom_list = self.manual_input()
+            self.update_board_atoms(atom_list)
         else:
-            num_atoms = "You Won!"
+            atom_list = []
+            while len(atom_list) < num_atom:
+                atom_tup = randint(1, 8), randint(1, 8)
+                if atom_tup not in atom_list:
+                    atom_list.append(atom_tup)
+            self.update_board_atoms(atom_list)
 
-        self._score_image = self.bb_settings.font.render(current_score, True,
-                                             self.bb_settings.text_color,
-                                             self.bb_settings.bg_color)
+    def check_click(self, mouse_x, mouse_y):
+        """Identify what the tuple is the player clicked on
+        """
+        # Change the x/y screen coordinates to grid coordinates
+        column = mouse_x // 70
+        row = mouse_y // 70
 
-        self._atom_image = self.bb_settings.font.render(num_atoms, True,
-                                             self.bb_settings.text_color,
-                                             self.bb_settings.bg_color)
+        if row in [0, 9] or column in [0, 9]:
+            self.shoot_ray(row, column)
+        elif 0 < row < 9 and 0 < column < 9:
+            self.guess_atom(row, column)
 
-        return self._score_image, self._score_rect, \
-               self._atom_image, self._atom_rect
+    def update_screen(self):
+        """update images on the screen and flip to the new screen"""
+
+        # Redraw the screen during each pass through the loop.
+        self._screen.fill(self._bb_settings.bg_color)
+
+        # Redraw all markers around edge of board
+
+        # Draw the play button if the game is inactive
+        if not self._stats.game_active:
+            for button in self._play_button_list:
+                button.draw_button()
+        else:
+            self.blitme()
+            shoot_markers = self.get_entry_exit()
+            atom_markers = self.get_atom_guess()
+            for marker in shoot_markers.values():
+                marker[1].draw_marker()
+            for atom in atom_markers.values():
+                atom.draw_marker()
+        # Make the most recently drawn screen visible.
+        pygame.display.flip()
+
+
+    def make_play_buttons(self):
+        """
+        Makes play button object list
+        :return: list of 6 play buttons
+        """
+        play_button_list = []
+        play_button_1a = Button(self._bb_settings, self._screen,"1 Atom Random", 200, 162, 1)
+        play_button_list.append(play_button_1a)
+        play_button_2a = Button(self._bb_settings, self._screen, "2 Atoms Random", 500, 162, 2)
+        play_button_list.append(play_button_2a)
+        play_button_3a = Button(self._bb_settings, self._screen, "3 Atoms Random", 200, 350, 3)
+        play_button_list.append(play_button_3a)
+        play_button_4a = Button(self._bb_settings, self._screen, "4 Atoms Random", 500, 350, 4)
+        play_button_list.append(play_button_4a)
+        play_button_5a = Button(self._bb_settings, self._screen, "5 Atoms Random", 200, 537, 5)
+        play_button_list.append(play_button_5a)
+        play_button_6a = Button(self._bb_settings, self._screen, "Manual 4 Atoms", 500, 537,
+                                "4m")
+        play_button_list.append(play_button_6a)
+
+        return play_button_list
+
+
+def main():
+    """Full game play code"""
+
+    pygame.init()
+    pygame.display.init()
+
+    # Set the pygame clock
+    clock = pygame.time.Clock()
+
+    pygame.display.set_caption("Blackbox game")
+    game = BlackBoxGame()
+    clock = pygame.time.Clock()
+
+    while True:
+        game.check_events()
+        clock.tick(60)
+        game.update_screen()
+
+    pygame.quit()
+
+if __name__ == '__main__':
+    main()
