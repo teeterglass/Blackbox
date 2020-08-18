@@ -1,5 +1,6 @@
 from pygame import font
 
+
 class Settings():
     """A class to store all settings for Blackboard game"""
 
