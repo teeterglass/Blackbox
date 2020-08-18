@@ -89,7 +89,8 @@ class BlackBoxGame:
                 circle_tuple = self.calculate_entry_exit(entry_y, entry_x)
                 marker.update_center(circle_tuple)
                 points = self._player.add_entry_exit((entry_x, entry_y), marker,
-                                            (entry_x, entry_y))
+                                                     (entry_x, entry_y))
+                self._stats.dec_player_score(points)
                 return "Hit"
             elif exit_tup == 1:
                 # decrement entry only if not visited
@@ -239,7 +240,7 @@ class BlackBoxGame:
         elif button_clicked is not None and button_clicked.get_num_atom() == 2:
             sys.exit()
 
-    def manual_input():
+    def manual_input(self):
         """create manual 4 atom list"""
         atom_list = []
         while len(atom_list) < 4:
@@ -248,10 +249,10 @@ class BlackBoxGame:
                     mouse_x, mouse_y = pygame.mouse.get_pos()
                     column = mouse_x // 70
                     row = mouse_y // 70
-                    if 1 < column < 9 and 1 < row < 9:
+                    if 0 < column < 9 and 0 < row < 9:
                         if (row, column) not in atom_list:
                             atom_list.append((row, column))
-
+        print(atom_list)
         return atom_list
 
     def start_game(self, num_atom):
@@ -312,7 +313,8 @@ class BlackBoxGame:
     def make_replay_buttons(self):
         """make a replay buttons"""
         play_button_list = []
-        play_button_1a = Button(self._screen,"Would you like to play again?", 350, 162, 0, True)
+        play_button_1a = Button(self._screen, "Would you like to play again?",
+                                350, 162, 0, True)
         play_button_list.append(play_button_1a)
         play_button_2a = Button(self._screen, "Yes", 200, 350, 1)
         play_button_list.append(play_button_2a)
