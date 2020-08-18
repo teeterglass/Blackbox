@@ -169,19 +169,12 @@ class Board:
 
 
 class Player:
-    """Class to track the player's points and store move/guess locations"""
+    """Class to track the player's move/guess locations"""
 
-    def __init__(self, screen, bb_settings):
+    def __init__(self):
         """moves will track the players previous moves and guesses"""
         self._moves = {}
         self._atom_guess = {}
-        self.bb_settings = bb_settings
-        self.screen = screen
-        self.screen_rect = screen.get_rect()
-        self._score_image = None
-        self._score_rect = None
-        self._atom_image = None
-        self._atom_rect = None
 
     def get_moves(self):
         """returns the list of entry and exit the player has visited"""
