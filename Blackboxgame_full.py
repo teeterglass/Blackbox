@@ -44,7 +44,7 @@ class BlackBoxGame:
         self._bb_settings = Settings()
         self._screen = pygame.display.set_mode((self._bb_settings.screen_width,
                                                 self._bb_settings.screen_height))
-        self._player = Player(self._screen, self._bb_settings)
+        self._player = Player()
         self._stats = GameStats(self._bb_settings)
         self._scoreboard = Scoreboard(self._bb_settings, self._screen)
         self._image = pygame.image.load('board.bmp')
@@ -54,7 +54,7 @@ class BlackBoxGame:
 
     def setup_new_game(self):
         """setup all parameters for a fresh game"""
-        self._player = Player(self._screen, self._bb_settings)
+        self._player = Player()
         self._stats = GameStats(self._bb_settings)
         self._scoreboard = Scoreboard(self._bb_settings, self._screen)
 
@@ -252,7 +252,6 @@ class BlackBoxGame:
                     if 0 < column < 9 and 0 < row < 9:
                         if (row, column) not in atom_list:
                             atom_list.append((row, column))
-        print(atom_list)
         return atom_list
 
     def start_game(self, num_atom):
