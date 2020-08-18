@@ -215,7 +215,7 @@ class BlackBoxGame:
     def check_game_mode_button(self, mouse_x, mouse_y):
         """Start a new game when the player clicks play"""
         for button in self._play_mode_button_list:
-            if button.rect.collidepoint(mouse_x, mouse_y):
+            if button.get_button_rect().collidepoint(mouse_x, mouse_y):
                 button_clicked = button
                 break
             else:
@@ -223,20 +223,20 @@ class BlackBoxGame:
 
         if button_clicked is not None and \
                 self._stats.get_status() == "Start_game":
-            self.start_game(button_clicked.num_atom)
+            self.start_game(button_clicked.get_num_atom())
 
     def check_replay_button(self, mouse_x, mouse_y):
         """check if they select yes or no"""
         for button in self._replay_button_list:
-            if button.rect.collidepoint(mouse_x, mouse_y):
+            if button.get_button_rect().collidepoint(mouse_x, mouse_y):
                 button_clicked = button
                 break
             else:
                 button_clicked = None
 
-        if button_clicked is not None and button_clicked.num_atom == 1:
+        if button_clicked is not None and button_clicked.get_num_atom() == 1:
             self.setup_new_game()
-        elif button_clicked is not None and button_clicked.num_atom == 2:
+        elif button_clicked is not None and button_clicked.get_num_atom() == 2:
             sys.exit()
 
     def manual_input():
@@ -312,11 +312,11 @@ class BlackBoxGame:
     def make_replay_buttons(self):
         """make a replay buttons"""
         play_button_list = []
-        play_button_1a = Button(self._bb_settings, self._screen,"Would you like to play again?", 200, 162, 0)
+        play_button_1a = Button(self._screen,"Would you like to play again?", 350, 162, 0, True)
         play_button_list.append(play_button_1a)
-        play_button_2a = Button(self._bb_settings, self._screen, "Yes", 500, 162, 1)
+        play_button_2a = Button(self._screen, "Yes", 200, 350, 1)
         play_button_list.append(play_button_2a)
-        play_button_3a = Button(self._bb_settings, self._screen, "No", 200, 350, 2)
+        play_button_3a = Button(self._screen, "No", 500, 350, 2)
         play_button_list.append(play_button_3a)
 
         return play_button_list
@@ -327,17 +327,17 @@ class BlackBoxGame:
         :return: list of 6 play buttons
         """
         play_button_list = []
-        play_button_1a = Button(self._bb_settings, self._screen,"1 Atom Random", 200, 162, 1)
+        play_button_1a = Button(self._screen,"1 Atom Random", 200, 162, 1)
         play_button_list.append(play_button_1a)
-        play_button_2a = Button(self._bb_settings, self._screen, "2 Atoms Random", 500, 162, 2)
+        play_button_2a = Button(self._screen, "2 Atoms Random", 500, 162, 2)
         play_button_list.append(play_button_2a)
-        play_button_3a = Button(self._bb_settings, self._screen, "3 Atoms Random", 200, 350, 3)
+        play_button_3a = Button(self._screen, "3 Atoms Random", 200, 350, 3)
         play_button_list.append(play_button_3a)
-        play_button_4a = Button(self._bb_settings, self._screen, "4 Atoms Random", 500, 350, 4)
+        play_button_4a = Button(self._screen, "4 Atoms Random", 500, 350, 4)
         play_button_list.append(play_button_4a)
-        play_button_5a = Button(self._bb_settings, self._screen, "5 Atoms Random", 200, 537, 5)
+        play_button_5a = Button(self._screen, "5 Atoms Random", 200, 537, 5)
         play_button_list.append(play_button_5a)
-        play_button_6a = Button(self._bb_settings, self._screen, "Manual 4 Atoms", 500, 537,
+        play_button_6a = Button(self._screen, "Manual 4 Atoms", 500, 537,
                                 "4m")
         play_button_list.append(play_button_6a)
 
